@@ -30,13 +30,14 @@ contract SvgFacet is Modifiers { // here we have a contract “ SvgFacet” whic
     ///@param _tokenId the identifier of the token to query
     ///@return ag_ The final svg which contains the combined SVG of its layers and its wearables
 
-    function getAavegotchiSvg(uint256 _tokenId) public view returns (string memory ag_) {
-        require(s.aavegotchis[_tokenId].owner != address(0), "SvgFacet: _tokenId does not exist");
+    function getAavegotchiSvg(uint256 _tokenId) public view returns (string memory ag_) { // function that takes a uint256 and returns string ag_
+        require(s.aavegotchis[_tokenId].owner != address(0), "SvgFacet: _tokenId does not exist"); // a check to enusure incoming address is not zero address
 
- bytes memory svg;
-        uint8 status = s.aavegotchis[_tokenId].status;
-        uint256 hauntId = s.aavegotchis[_tokenId].hauntId;
-        if (status == LibAavegotchi.STATUS_CLOSED_PORTAL) {
+ bytes memory svg; // local variable of type bytes named svg
+        uint8 status = s.aavegotchis[_tokenId].status; // variable of type uint8 assignment
+        uint256 hauntId = s.aavegotchis[_tokenId].hauntId; // variable of type uint256 assignment
+        //conditional checks and outputs
+        if (status == LibAavegotchi.STATUS_CLOSED_PORTAL) { 
             // sealed closed portal
             svg = LibSvg.getSvg("portal-closed", hauntId);
         } else if (status == LibAavegotchi.STATUS_OPEN_PORTAL) {
