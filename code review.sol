@@ -420,3 +420,155 @@ contract SvgFacet is Modifiers { // here we have a contract “ SvgFacet” whic
         }
         svg_ = abi.encodePacked(svg_, layers.sleeves, layers.handLeft, layers.handRight, layers.pet);// concatination done with abi.encode
     }
+    
+    
+    ///@notice Query the svg data for all aavegotchis with the portals as bg (10 in total)
+    ///@dev This is only valid for opened and unclaimed portals
+    ///@param _tokenId the identifier of the NFT(opened portal)
+    ///@return svg_ An array containing the svg strings for eeach of the aavegotchis inside the portal //10 in total
+    
+    // function that takes uint256 as parameter and returns an array of string
+    function portalAavegotchisSvg(uint256 _tokenId) external view returns (string[PORTAL_AAVEGOTCHIS_NUM] memory svg_) {
+        require(s.aavegotchis[_tokenId].status == LibAavegotchi.STATUS_OPEN_PORTAL, "AavegotchiFacet: Portal not open"); // sanity checks with a return error message
+
+        uint256 hauntId = s.aavegotchis[_tokenId].hauntId; // variable assignment
+        PortalAavegotchiTraitsIO[PORTAL_AAVEGOTCHIS_NUM] memory l_portalAavegotchiTraits = LibAavegotchi.portalAavegotchiTraits(_tokenId); //memory binding
+        for (uint256 i; i < svg_.length; i++) { // looping over the lenght of svg_
+            address collateralType = l_portalAavegotchiTraits[i].collateralType; // variable assignment
+            svg_[i] = string( // string typcasting
+                abi.encodePacked( // concatination of svg tags done with abi.encode
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">',
+                    getAavegotchiSvgLayers(collateralType, l_portalAavegotchiTraits[i].numericTraits, type(uint256).max, hauntId),
+                    // get hands
+                    LibSvg.getSvg("aavegotchi", 3),
+                    "</svg>"
+                )
+            );
+        }
+    }
+
+    ///@notice Query the svg data for a particular item
+    ///@dev Will throw if that item does not exist
+    ///@param _svgType the type of svg
+    ///@param _itemId The identifier of the item to query
+    ///@return svg_ The svg string for the item
+    
+    // function that takes an bytes32, uint256 and returns string
+    function getSvg(bytes32 _svgType, uint256 _itemId) external view returns (string memory svg_) {
+        svg_ = string(LibSvg.getSvg(_svgType, _itemId));// varible assignment
+    }
+
+    ///@notice Query the svg data for a multiple items of the same type
+    ///@dev Will throw if one of the items does not exist
+    ///@param _svgType The type of svg
+    ///@param _itemIds The identifiers of the items to query
+    ///@return svgs_ An array containing the svg strings for each item queried
+    
+    // function that takes bytes32, an array of uint256 and returns an array of strings
+    function getSvgs(bytes32 _svgType, uint256[] calldata _itemIds) external view returns (string[] memory svgs_) {
+        uint256 length = _itemIds.length;// varible assignment
+        svgs_ = new string[](length); // varible assignment
+        for (uint256 i; i < length; i++) { // looping over the lenght variable
+            svgs_[i] = string(LibSvg.getSvg(_svgType, _itemIds[i])); // varible assignment
+        }
+    }
+
+    ///@notice Query the svg data for a particular item (with dimensions)
+    ///@dev Will throw if that item does not exist
+    ///@param _itemId The identifier of the item to query
+    ///@return ag_ The svg string for the item
+    
+    // function that takes uint256 and returns string
+    function getItemSvg(uint256 _itemId) external view returns (string memory ag_) {
+        require(_itemId < s.itemTypes.length, "ItemsFacet: _id not found for item"); // sanity check that contains error message
+        bytes memory svg; // varible declaration
+        svg = LibSvg.getSvg("wearables", _itemId); // varible assignment
+        // uint256 dimensions = s.itemTypes[_itemId].dimensions;
+        Dimensions storage dimensions = s.itemTypes[_itemId].dimensions;// storage binding
+        ag_ = string(
+            abi.encodePacked(// concatination  done with abi.encode
+                // width
+                LibStrings.strWithUint('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ', dimensions.width),
+                // height
+                LibStrings.strWithUint(" ", dimensions.height),
+                '">',
+                svg,
+                "</svg>"
+            )
+        );
+    }
+    
+    
+     /***********************************|
+   |             Write Functions        |    // "wtrite function" are set of functions that can make changes to the state of the blockchain
+   |__________________________________*/
+
+    ///@notice Allow an item manager to store a new  svg
+    ///@param _svg the new svg string
+    ///@param _typesAndSizes An array of structs, each struct containing the types and sizes data for `_svg`
+    
+    // function that takes string, an array of LibSvg.SvgTypeAndSizes as parameters, onlyItemManager is the modifier 
+    function storeSvg(string calldata _svg, LibSvg.SvgTypeAndSizes[] calldata _typesAndSizes) external onlyItemManager {
+    // LibSvg.storeSvg takes two arguments and updates the state
+        LibSvg.storeSvg(_svg, _typesAndSizes);
+    }
+
+    ///@notice Allow an item manager to update an existing svg
+    ///@param _svg the new svg string
+    ///@param _typesAndIdsAndSizes An array of structs, each struct containing the types,identifier and sizes data for `_svg`
+    
+    // function that takes string, an array of LibSvg.SvgTypeAndSizes as parameters, onlyItemManager is the modifier
+    function updateSvg(string calldata _svg, LibSvg.SvgTypeAndIdsAndSizes[] calldata _typesAndIdsAndSizes) external onlyItemManager {
+    // LibSvg.updateSvg take two arguments updates them accordingly
+        LibSvg.updateSvg(_svg, _typesAndIdsAndSizes);
+    }
+
+    ///@notice Allow  an item manager to delete the svg layers of an  svg
+    ///@param _svgType The type of svg
+    ///@param _numLayers The number of layers to delete (from the last one)
+    
+    // function that takes bytes and uint256, with "onlyItemManager" as modifier
+    function deleteLastSvgLayers(bytes32 _svgType, uint256 _numLayers) external onlyItemManager {
+        for (uint256 i; i < _numLayers; i++) { // looping over _numLayers
+            s.svgLayers[_svgType].pop(); // removing last elemet from "s.svgLayers[_svgType]" by the means of pop methode
+        }
+    }
+   
+   // struct with name Sleeve
+    struct Sleeve {
+        uint256 sleeveId;
+        uint256 wearableId;
+    }
+
+    ///@notice Allow  an item manager to set the sleeves of multiple items at once
+    ///@dev each sleeve in `_sleeves` already contains the `_itemId` to apply to
+    ///@param _sleeves An array of structs,each struct containing details about the new sleeves of each item `
+    
+    //function that takes an array of Sleeve(struct), "onlyItemManager" as the modifier
+    function setSleeves(Sleeve[] calldata _sleeves) external onlyItemManager {
+        for (uint256 i; i < _sleeves.length; i++) { // looping over _sleeves
+            s.sleeves[_sleeves[i].wearableId] = _sleeves[i].sleeveId; // updating the data at "s.sleeves[_sleeves[i].wearableId"
+        }
+    }
+
+    ///@notice Allow  an item manager to set the dimensions of multiple items at once
+    ///@param _itemIds The identifiers of the items whose dimensions are to be set
+    ///@param _dimensions An array of structs,each struct containing details about the new dimensions of each item in `_itemIds`
+
+    // function that takes an array of uint256, an array of Dimensions, with onlyItemManger as modifier
+    function setItemsDimensions(uint256[] calldata _itemIds, Dimensions[] calldata _dimensions) external onlyItemManager {
+        require(_itemIds.length == _dimensions.length, "SvgFacet: _itemIds not same length as _dimensions"); //sanity check with error message
+        for (uint256 i; i < _itemIds.length; i++) { // looping over the lenght of _itemIds
+            s.itemTypes[_itemIds[i]].dimensions = _dimensions[i]; // updating the data at "s.itemTypes[_itemIds[i]].dimensions"
+        }
+    }
+
+    ///@notice used for setting starting id for new sleeve set uploads
+    ///@return next available sleeve id to start new set upload
+    
+    // view functions
+    function getNextSleeveId() external view returns (uint256) {
+        return s.svgLayers[LibSvg.bytesToBytes32("sleeves", "")].length; // getting the lenght of "s.svgLayers[LibSvg.bytesToBytes32("sleeves", "")"
+    }
+}
+
