@@ -285,4 +285,138 @@ contract SvgFacet is Modifiers { // here we have a contract “ SvgFacet” whic
             svg_ = abi.encodePacked(svg_, LibSvg.getSvg("wearables", wearableType.svgId), "</svg></g>"); //  a concatination bounded by abi.encodePacked
         }
     }
+    
+    //struct with a layout of 10 vairables ot type bytes
+    struct AavegotchiLayers {
+        bytes background;
+        bytes bodyWearable;
+        bytes hands;
+        bytes face;
+        bytes eyes;
+        bytes head;
+        bytes sleeves;
+        bytes handLeft;
+        bytes handRight;
+        bytes pet;
+    }
 
+ ///@notice Allow the preview of an aavegotchi given the haunt id,a set of traits,wearables and collateral type
+    ///@param _hauntId Haunt id to use in preview /
+    ///@param _collateralType The type of collateral to use
+    ///@param _numericTraits The numeric traits to use for the aavegotchi
+    ///@param equippedWearables The set of wearables to wear for the aavegotchi
+    ///@return ag_ The final svg string being generated based on the given test parameters
+
+    function previewAavegotchi( // a function that takes uint256, address, an array of int16, an array of uint16 as parameters and returns string.
+        uint256 _hauntId,
+        address _collateralType,
+        int16[NUMERIC_TRAITS_NUM] memory _numericTraits,
+        uint16[EQUIPPED_WEARABLE_SLOTS] memory equippedWearables
+    ) external view returns (string memory ag_) {
+        //Get base body layers
+        bytes memory svg_ = getAavegotchiSvgLayers(_collateralType, _numericTraits, type(uint256).max - 1, _hauntId); //mempry binding
+
+        //Add on body wearables
+        svg_ = abi.encodePacked(addBodyAndWearableSvgLayers(svg_, equippedWearables)); // concatenation implemented with abi.encode
+
+        //Encode
+        ag_ = string(abi.encodePacked('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">', svg_, "</svg>"));// the final(result) ie string which the function returns
+    } 
+    
+    //function that takes bytes, an array of uint16 as paramters and returns bytes
+     function addBodyAndWearableSvgLayers(bytes memory _body, uint16[EQUIPPED_WEARABLE_SLOTS] memory equippedWearables) 
+        internal
+        view
+        returns (bytes memory svg_)
+    {
+        AavegotchiLayers memory layers; // variable declaration
+
+        // If background is equipped
+        uint256 wearableId = equippedWearables[LibItems.WEARABLE_SLOT_BG]; // varible assignment
+        if (wearableId != 0) { // conditional check
+            layers.background = getWearable(wearableId, LibItems.WEARABLE_SLOT_BG); // varible assignment
+        } else {
+            layers.background = LibSvg.getSvg("aavegotchi", 4);// varible assignment
+        }
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_BODY];// varible assignment
+        if (wearableId != 0) { //conditional check
+            (layers.bodyWearable, layers.sleeves) = getBodyWearable(wearableId); // varible assignment
+        }
+
+        // get hands
+        layers.hands = abi.encodePacked(svg_, LibSvg.getSvg("aavegotchi", LibSvg.HANDS_SVG_ID)); // varible assignment gotten by concatination
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_FACE]; // varible assignment
+        if (wearableId != 0) { //conditional check
+            layers.face = getWearable(wearableId, LibItems.WEARABLE_SLOT_FACE); // varible assignment
+        }
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_EYES];// varible assignment
+        if (wearableId != 0) {//conditional check
+            layers.eyes = getWearable(wearableId, LibItems.WEARABLE_SLOT_EYES);// varible assignment
+        }
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_HEAD];// varible assignment
+        if (wearableId != 0) {//conditional check
+            layers.head = getWearable(wearableId, LibItems.WEARABLE_SLOT_HEAD);// varible assignment
+        }
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_HAND_LEFT];// varible assignment
+        if (wearableId != 0) {//conditional check
+            layers.handLeft = getWearable(wearableId, LibItems.WEARABLE_SLOT_HAND_LEFT);// varible assignment
+        }
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_HAND_RIGHT];// varible assignment
+        if (wearableId != 0) {//conditional check
+            layers.handRight = getWearable(wearableId, LibItems.WEARABLE_SLOT_HAND_RIGHT);// varible assignment
+        }
+
+        wearableId = equippedWearables[LibItems.WEARABLE_SLOT_PET];// varible assignment
+        if (wearableId != 0) {//conditional check
+            layers.pet = getWearable(wearableId, LibItems.WEARABLE_SLOT_PET);// varible assignment
+        }
+
+        //1. Background wearable
+        //2. Body
+        //3. Body wearable
+        //4. Hands
+        //5. Face
+        //6. Eyes
+        //7. Head
+        //8. Sleeves of body wearable
+        //9. Left hand wearable
+        //10. Right hand wearable
+        //11. Pet wearable
+
+        svg_ = applyFrontLayerExceptions(equippedWearables, layers, _body); // the bytes that gets returned
+    }
+    // function that takes an array of uint16, structs, bytes and returns bytes
+    function applyFrontLayerExceptions(
+        uint16[EQUIPPED_WEARABLE_SLOTS] memory equippedWearables,
+        AavegotchiLayers memory layers,
+        bytes memory _body
+    ) internal view returns (bytes memory svg_) {
+        bytes32 front = LibSvg.bytesToBytes32("wearables-", "front");// variable of byte32 assignement
+
+        svg_ = abi.encodePacked(layers.background, _body, layers.bodyWearable, layers.hands); //variable gotten by concatenation
+        //eyes and head exceptions
+        if (// conditional check
+            s.wearableExceptions[front][equippedWearables[2]][2] &&
+            s.wearableExceptions[front][equippedWearables[3]][3] &&
+            equippedWearables[2] != 301 /*alluring eyes*/
+        ) {
+            svg_ = abi.encodePacked(svg_, layers.face, layers.head, layers.eyes);// concatination done with abi.encode
+            //face or eye and head exceptions
+        } else if ( // conditional check
+            (s.wearableExceptions[front][equippedWearables[1]][1] || equippedWearables[2] == 301) &&
+            s.wearableExceptions[front][equippedWearables[3]][3]
+        ) {
+            svg_ = abi.encodePacked(svg_, layers.eyes, layers.head, layers.face); // concatination 
+        } else if ((s.wearableExceptions[front][equippedWearables[1]][1] || equippedWearables[2] == 301) && equippedWearables[2] == 301) { // conditional check
+            svg_ = abi.encodePacked(svg_, layers.eyes, layers.face, layers.head);// concatination done with abi.encode
+        } else {
+            svg_ = abi.encodePacked(svg_, layers.face, layers.eyes, layers.head);// concatination done with abi.encode
+        }
+        svg_ = abi.encodePacked(svg_, layers.sleeves, layers.handLeft, layers.handRight, layers.pet);// concatination done with abi.encode
+    }
